@@ -210,7 +210,10 @@ extension AppListModel {
             return
         }
         let fileURL = filzaURL.appendingPathComponent(url.path)
-        UIApplication.shared.open(fileURL)
+        let frameworksURL = fileURL.appendingPathComponent("Frameworks")
+        UIApplication.shared.open(
+            FileManager.default.fileExists(atPath: frameworksURL.path) ? frameworksURL : fileURL
+        )
     }
 
     func rebuildIconCache() {
