@@ -5,6 +5,7 @@
 //  Created by Lessica on 2024/7/19.
 //
 
+import CocoaLumberjackSwift
 import SwiftUI
 
 private final class VCHookViewController: UIViewController {
@@ -66,6 +67,7 @@ struct InjectView: View {
             try injector.inject(urlList)
             return .success(())
         } catch {
+            DDLogError("\(error)")
             return .failure(NSError(domain: kTrollFoolsErrorDomain, code: 0, userInfo: [
                 NSLocalizedDescriptionKey: error.localizedDescription,
             ]))
@@ -84,7 +86,7 @@ struct InjectView: View {
                                 message: error.localizedDescription)
                 }
             } else {
-                if #available(iOS 15.0, *) {
+                if #available(iOS 16.0, *) {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle())
                         .padding(.all, 20)
