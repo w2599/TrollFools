@@ -1,5 +1,5 @@
 ARCHS := arm64
-TARGET := iphone:clang:latest:14.0
+TARGET := iphone:clang:latest:15.0
 
 INSTALL_TARGET_PROCESSES += TrollFools
 INSTALL_TARGET_PROCESSES += trollfoolscli
@@ -11,7 +11,7 @@ TrollFools_XCODE_SCHEME = TrollFools
 
 include $(THEOS_MAKE_PATH)/xcodeproj.mk
 
-SUBPROJECTS += TrollFoolsTweak
+# SUBPROJECTS += TrollFoolsTweak
 
 include $(THEOS_MAKE_PATH)/aggregate.mk
 

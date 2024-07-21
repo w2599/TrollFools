@@ -33,7 +33,7 @@ enum Constants {
     static let gAppName = (Bundle.main.localizedInfoDictionary?["CFBundleDisplayName"] as? String) ?? "TrollFools"
     static let gAppVersion = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0"
     static let gAppBuildVersion = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "1"
-    static let gAppIdentifier = Bundle.main.bundleIdentifier ?? "wiki.qaq.TrollFools"
+    static let gAppIdentifier = Bundle.main.bundleIdentifier ?? "cn.zqbb.TFools"
     static let gErrorDomain = "\(gAppIdentifier).error"
 
     static let updateManagerCheckInterval: TimeInterval = 7200 // 2 hours

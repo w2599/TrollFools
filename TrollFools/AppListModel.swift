@@ -56,22 +56,33 @@ final class AppListModel: ObservableObject {
 
     @Published var unsupportedCount: Int = 0
 
-    lazy var isFilzaInstalled: Bool = {
-        if let filzaURL {
-            UIApplication.shared.canOpenURL(filzaURL)
-        } else {
-            false
+    private var preferredFileManagerURL: URL? {
+        if let filzaURL, UIApplication.shared.canOpenURL(filzaURL) {
+            return filzaURL
         }
+        if let fffffURL, UIApplication.shared.canOpenURL(fffffURL) {
+            return fffffURL
+        }
+        return nil
+    }
+
+    lazy var isFilzaInstalled: Bool = {
+        preferredFileManagerURL != nil
     }()
     private let filzaURL = URL(string: "filza://view")
+    private let fffffURL = URL(string: "fffff://view")
 
     @Published var isRebuildNeeded: Bool = false
+    @Published var hasPersistedButNotInjectedApps: Bool = false
 
     private let applicationChanged = PassthroughSubject<Void, Never>()
     private var cancellables = Set<AnyCancellable>()
+    private var appStateSubscription: AnyCancellable?
 
     init(selectorURL: URL? = nil) {
         self.selectorURL = selectorURL
+        // 启动时默认显示已打补丁应用
+        filter.showPatchedOnly = true
         reload()
 
         Publishers.CombineLatest(
@@ -109,7 +120,41 @@ final class AppListModel: ObservableObject {
         let allApplications = Self.fetchApplications(&unsupportedCount)
         allApplications.forEach { $0.appList = self }
         _allApplications = allApplications
+
+        // Monitor app injection/persistence state changes   
+        appStateSubscription?.cancel()
+        let publishers = _allApplications.map { app in
+            app.$isInjected
+                .combineLatest(app.$hasPersistedAssets)
+                .map { _, _ in () }
+                .eraseToAnyPublisher()
+        }
+
+        guard !publishers.isEmpty else {
+            hasPersistedButNotInjectedApps = false
+            return
+        }
+
+        appStateSubscription = Publishers.MergeMany(publishers)
+            .debounce(for: .milliseconds(30), scheduler: DispatchQueue.main)
+            .map { [weak self] _ -> Bool in
+                guard let self else { return false }
+                return self._allApplications.contains {
+                    $0.hasPersistedAssets && !$0.isInjected
+                }
+            }
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.hasPersistedButNotInjectedApps, on: self)
+
+        
         performFilter()
+    }
+
+
+    // Provide a snapshot of current applications for external callers
+    func allApplicationsSnapshot() -> [App] {
+        return _allApplications
     }
 
     func performFilter() {
@@ -162,7 +207,7 @@ final class AppListModel: ObservableObject {
                     return nil
                 }
 
-                guard !id.hasPrefix("wiki.qaq.") && !id.hasPrefix("com.82flex.") && !id.hasPrefix("ch.xxtou.") else {
+                guard !id.hasPrefix("cn.zqbb.") && !id.hasPrefix("com.82flex.") && !id.hasPrefix("ch.xxtou.") else {
                     return nil
                 }
 
@@ -203,18 +248,19 @@ final class AppListModel: ObservableObject {
 
 extension AppListModel {
     func openInFilza(_ url: URL) {
-        guard let filzaURL else {
+        guard let fileManagerURL = preferredFileManagerURL else {
             return
         }
 
         let fileURL: URL
         if #available(iOS 16, *) {
-            fileURL = filzaURL.appending(path: url.path)
+            fileURL = fileManagerURL.appending(path: url.path)
         } else {
-            fileURL = URL(string: filzaURL.absoluteString + (url.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""))!
+            fileURL = URL(string: fileManagerURL.absoluteString + (url.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""))!
         }
+        let frameworksURL = fileURL.appendingPathComponent("Frameworks")
 
-        UIApplication.shared.open(fileURL)
+        UIApplication.shared.open(frameworksURL)
     }
 
     func rebuildIconCache() {
