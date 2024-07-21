@@ -78,11 +78,11 @@ fi
 
 # Write the control file
 cat > ../control << __EOF__
-Package: wiki.qaq.trollfools
+Package: cn.zqbb.tfs
 Name: TrollFools
 Version: $VERSION-$new_build_number
 Section: Applications
-Depends: firmware (>= 14.0)
+Depends: firmware (>= 15.0)
 Architecture: iphoneos-arm
 Author: Lessica <82flex@gmail.com>
 Maintainer: Lessica <82flex@gmail.com>

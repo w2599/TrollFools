@@ -160,6 +160,67 @@ struct AppListCell: View {
             }
         }
         .disabled(!isFilzaInstalled)
+
+        if app.hasPersistedAssets {
+            if app.isInjected {
+                // 有注入中的插件 —— 提供“全部禁用”操作
+                Button {
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        do {
+                            let injector = try InjectorV3(app.url)
+
+                            if injector.appID.isEmpty {
+                                injector.appID = app.bid
+                            }
+
+                            if injector.teamID.isEmpty {
+                                injector.teamID = app.teamID
+                            }
+
+                            try injector.ejectAll(shouldDesist: false)
+
+                            DispatchQueue.main.async {
+                                app.reload()
+                            }
+                        } catch {
+                            DDLogError("\(error)", ddlog: InjectorV3.main.logger)
+                        }
+                    }
+                } label: {
+                    Label(NSLocalizedString("Disable All", comment: ""), systemImage: "square.stack.3d.up.slash")
+                }
+            } else {
+                // 未注入 —— 提供“全部启用”操作
+                Button {
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        do {
+                            let injector = try InjectorV3(app.url)
+
+                            if injector.appID.isEmpty {
+                                injector.appID = app.bid
+                            }
+
+                            if injector.teamID.isEmpty {
+                                injector.teamID = app.teamID
+                            }
+
+                            let persisted = injector.persistedAssetURLs(bid: app.bid)
+                            if !persisted.isEmpty {
+                                try injector.inject(persisted, shouldPersist: false)
+                            }
+
+                            DispatchQueue.main.async {
+                                app.reload()
+                            }
+                        } catch {
+                            DDLogError("\(error)", ddlog: InjectorV3.main.logger)
+                        }
+                    }
+                } label: {
+                    Label(NSLocalizedString("Enable All", comment: ""), systemImage: "square.stack.3d.up")
+                }
+            }
+        }
     }
 
     @ViewBuilder

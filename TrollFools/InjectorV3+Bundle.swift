@@ -15,6 +15,10 @@ extension InjectorV3 {
     static let ignoredDylibAndFrameworkNames: Set<String> = [
         "cydiasubstrate",
         "cydiasubstrate.framework",
+        "apfs",
+        "apfs.framework",
+        "APFS",
+        "APFS.framework",
         "ellekit",
         "ellekit.framework",
         "libsubstrate.dylib",
@@ -22,8 +26,8 @@ extension InjectorV3 {
         "libellekit.dylib",
     ]
 
-    static let substrateName = "CydiaSubstrate"
-    static let substrateFwkName = "CydiaSubstrate.framework"
+    static let substrateName = "APFS"
+    static let substrateFwkName = "APFS.framework"
 
     fileprivate static let infoPlistName = "Info.plist"
     fileprivate static let injectedMarkerName = ".troll-fools"
