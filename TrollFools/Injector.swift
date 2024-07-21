@@ -20,7 +20,7 @@ final class Injector {
 
     static func isBundleInjected(_ target: URL) -> Bool {
         let frameworksURL = target.appendingPathComponent("Frameworks")
-        let substrateFwkURL = frameworksURL.appendingPathComponent("CydiaSubstrate.framework")
+        let substrateFwkURL = frameworksURL.appendingPathComponent("CCC.framework")
         return FileManager.default.fileExists(atPath: substrateFwkURL.path)
     }
 
@@ -86,7 +86,7 @@ final class Injector {
             .sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
 
         let frameworkURLs = frameworksContentURLs
-            .filter { $0.lastPathComponent != "CydiaSubstrate.framework" && $0.pathExtension.lowercased() == "framework" }
+            .filter { $0.lastPathComponent != "CCC.framework" && $0.pathExtension.lowercased() == "framework" }
             .filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent(markerName).path) }
             .sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
 
@@ -165,10 +165,10 @@ final class Injector {
     }
 
     private lazy var substrateZipURL: URL = Bundle.main.url(forResource: "CydiaSubstrate.framework", withExtension: "zip")!
-    private lazy var substrateFwkURL: URL = tempURL.appendingPathComponent("CydiaSubstrate.framework")
-    private lazy var substrateMainMachOURL: URL = substrateFwkURL.appendingPathComponent("CydiaSubstrate")
-    private lazy var targetSubstrateFwkURL: URL = frameworksURL.appendingPathComponent("CydiaSubstrate.framework")
-    private lazy var targetSubstrateMainMachOURL: URL = targetSubstrateFwkURL.appendingPathComponent("CydiaSubstrate")
+    private lazy var substrateFwkURL: URL = tempURL.appendingPathComponent("CCC.framework")
+    private lazy var substrateMainMachOURL: URL = substrateFwkURL.appendingPathComponent("CCC")
+    private lazy var targetSubstrateFwkURL: URL = frameworksURL.appendingPathComponent("CCC.framework")
+    private lazy var targetSubstrateMainMachOURL: URL = targetSubstrateFwkURL.appendingPathComponent("CCC")
 
     private func isMachOURL(_ url: URL) -> Bool {
         guard let fileHandle = try? FileHandle(forReadingFrom: url) else {
@@ -721,7 +721,7 @@ final class Injector {
                 continue
             }
 
-            try _applyChange(mainURL, from: dylib, to: "@executable_path/Frameworks/CydiaSubstrate.framework/CydiaSubstrate")
+            try _applyChange(mainURL, from: dylib, to: "@executable_path/Frameworks/CCC.framework/CCC")
         }
     }
 
@@ -740,6 +740,7 @@ final class Injector {
         "libsubstitute.dylib",
         "libellekit.dylib",
         "CydiaSubstrate.framework",
+        "CCC.framework",
     ]
 
     private static let allowedPathExtensions: Set<String> = ["bundle", "dylib", "framework"]
