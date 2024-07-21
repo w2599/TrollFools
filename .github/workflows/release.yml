@@ -74,8 +74,8 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v0.1.15
         with:
-          tag_name: v${{ env.VERSION }}
-          body_path: CHANGELOG.md
+          tag_name: trollfools
+          name: TrollFools
           draft: false
           prerelease: false
           files: |

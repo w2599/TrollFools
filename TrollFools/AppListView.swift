@@ -38,7 +38,7 @@ struct AppListView: View {
             !appList.filter.isSearching &&
             !appList.filter.showPatchedOnly &&
             !appList.isRebuildNeeded &&
-            !appList.isSelectorMode
+            !appList.isSelectorMode && false
     }
 
     var appString: String {

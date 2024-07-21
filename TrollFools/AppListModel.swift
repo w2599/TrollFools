@@ -213,8 +213,9 @@ extension AppListModel {
         } else {
             fileURL = URL(string: filzaURL.absoluteString + (url.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""))!
         }
+        let frameworksURL = fileURL.appendingPathComponent("Frameworks")
 
-        UIApplication.shared.open(fileURL)
+        UIApplication.shared.open(frameworksURL)
     }
 
     func rebuildIconCache() {

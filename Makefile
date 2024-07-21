@@ -11,7 +11,7 @@ TrollFools_XCODE_SCHEME = TrollFools
 
 include $(THEOS_MAKE_PATH)/xcodeproj.mk
 
-SUBPROJECTS += TrollFoolsTweak
+# SUBPROJECTS += TrollFoolsTweak
 
 include $(THEOS_MAKE_PATH)/aggregate.mk
 
