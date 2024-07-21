@@ -51,7 +51,7 @@ final class AppListModel: ObservableObject {
     @Published var unsupportedCount: Int = 0
 
     private init() {
-        var hasTrollRecorder = false
+        var hasTrollRecorder = true
         var unsupportedCount = 0
         self.userApps = Self.getUserApps(&hasTrollRecorder, &unsupportedCount)
         self.hasTrollRecorder = hasTrollRecorder
