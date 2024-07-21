@@ -53,7 +53,7 @@ final class AppListModel: ObservableObject {
     static let shared = AppListModel()
 
     @Published var allApplications: [App] = []
-    @Published var hasTrollRecorder: Bool = false
+    @Published var hasTrollRecorder: Bool = true
     @Published var unsupportedCount: Int = 0
 
     private init() {
