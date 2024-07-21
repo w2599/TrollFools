@@ -41,7 +41,7 @@ jobs:
           cd TrollFools
           unzip libLLVM.zip 
           cd ..
-          make package
+          make package FINALPACKAGE=1
           ls Packages
 
       - name: Upload Latest Artifact
