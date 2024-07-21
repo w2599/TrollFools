@@ -77,7 +77,7 @@ final class AppListModel: ObservableObject {
     @Published var trollApplications: [App] = []
     @Published var appleApplications: [App] = []
 
-    @Published var hasTrollRecorder: Bool = false
+    @Published var hasTrollRecorder: Bool = true
     @Published var unsupportedCount: Int = 0
 
     @Published var isFilzaInstalled: Bool = false
