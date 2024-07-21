@@ -22,6 +22,8 @@ struct AppListView: View {
     @State var selectorOpenedURL: URLIdentifiable? = nil
     @State var selectedIndex: String? = nil
 
+    @State private var isReinjecting: Bool = false
+
     @State var isWarningPresented = false
     @State var temporaryOpenedURL: URLIdentifiable? = nil
 
@@ -38,7 +40,7 @@ struct AppListView: View {
             !appList.filter.isSearching &&
             !appList.filter.showPatchedOnly &&
             !appList.isRebuildNeeded &&
-            !appList.isSelectorMode
+            !appList.isSelectorMode && false
     }
 
     var appString: String {
@@ -261,6 +263,21 @@ struct AppListView: View {
         )
         .navigationBarTitleDisplayMode((AppListModel.isLegacyDevice || appList.isSelectorMode) ? .inline : .automatic)
         .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    reinjectAllPersistedAssets()
+                } label: {
+                    if isReinjecting {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle())
+                    } else {
+                        Image(systemName: "wrench.and.screwdriver")
+                            .imageScale(.medium)
+                    }
+                }
+                .accessibilityLabel(NSLocalizedString("Fix not injected", comment: ""))
+                .disabled(isReinjecting || !appList.hasPersistedButNotInjectedApps)
+            }
             ToolbarItem(placement: .principal) {
                 if appList.isSelectorMode, let selectorURL = appList.selectorURL {
                     VStack {
@@ -436,6 +453,40 @@ struct AppListView: View {
         } else {
             footerContent
                 .padding(.all, 16)
+        }
+    }
+
+    private func reinjectAllPersistedAssets() {
+        DispatchQueue.main.async {
+            isReinjecting = true
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let apps = appList.allApplicationsSnapshot()
+            for app in apps {
+                guard app.hasPersistedAssets && !app.isInjected else { continue }
+                do {
+                    let injector = try InjectorV3(app.url)
+
+                    if injector.appID.isEmpty { injector.appID = app.bid }
+                    if injector.teamID.isEmpty { injector.teamID = app.teamID }
+
+                    let persisted = injector.persistedAssetURLs(bid: app.bid)
+                    if !persisted.isEmpty {
+                        try injector.inject(persisted, shouldPersist: false)
+                    }
+
+                    DispatchQueue.main.async {
+                        app.reload()
+                    }
+                } catch {
+                    DDLogError("\(error)", ddlog: InjectorV3.main.logger)
+                }
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isReinjecting = false
+            }
         }
     }
 
