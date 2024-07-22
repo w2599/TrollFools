@@ -61,6 +61,6 @@ jobs:
           tag_name: trollfools
           name: TrollFools
           draft: false
-          prerelease: true
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
