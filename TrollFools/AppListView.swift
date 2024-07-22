@@ -10,6 +10,7 @@ import SwiftUI
 final class App: Identifiable, ObservableObject {
     let id: String
     let name: String
+    let type: String
     let teamID: String
     let url: URL
     let version: String?
@@ -19,9 +20,17 @@ final class App: Identifiable, ObservableObject {
     lazy var icon: UIImage? = UIImage._applicationIconImage(forBundleIdentifier: id, format: 0, scale: 3.0)
     var alternateIcon: UIImage?
 
-    init(id: String, name: String, teamID: String, url: URL, version: String? = nil, alternateIcon: UIImage? = nil) {
+    init(id: String,
+         name: String,
+         type: String,
+         teamID: String,
+         url: URL,
+         version: String? = nil,
+         alternateIcon: UIImage? = nil
+    ) {
         self.id = id
         self.name = name
+        self.type = type
         self.teamID = teamID
         self.url = url
         self.version = version
@@ -39,19 +48,22 @@ final class AppListModel: ObservableObject {
 
     @Published var userApps: [App]
     @Published var hasTrollRecorder: Bool = false
+    @Published var unsupportedCount: Int = 0
 
     private init() {
         var hasTrollRecorder = false
-        self.userApps = Self.getUserApps(&hasTrollRecorder)
+        var unsupportedCount = 0
+        self.userApps = Self.getUserApps(&hasTrollRecorder, &unsupportedCount)
         self.hasTrollRecorder = hasTrollRecorder
+        self.unsupportedCount = unsupportedCount
     }
 
     func refresh() {
-        self.userApps = Self.getUserApps(&hasTrollRecorder)
+        self.userApps = Self.getUserApps(&hasTrollRecorder, &unsupportedCount)
     }
 
-    private static func getUserApps(_ hasTrollRecorder: inout Bool) -> [App] {
-        LSApplicationWorkspace.default()
+    private static func getUserApps(_ hasTrollRecorder: inout Bool, _ unsupportedCount: inout Int) -> [App] {
+        let allApps: [App] = LSApplicationWorkspace.default()
             .allApplications()
             .filter { app in
                 guard let appId = app.applicationIdentifier() else {
@@ -60,7 +72,7 @@ final class AppListModel: ObservableObject {
                 if appId == "wiki.qaq.trapp" {
                     hasTrollRecorder = true
                 }
-                return app.applicationType() == "User"
+                return !appId.hasPrefix("com.apple.")
             }
             .compactMap {
                 guard let id = $0.applicationIdentifier(),
@@ -74,6 +86,7 @@ final class AppListModel: ObservableObject {
                       !id.hasPrefix("ch.xxtou."),
                       let url = $0.bundleURL(),
                       let teamID = $0.teamID(),
+                      let appType = $0.applicationType(),
                       let localizedName = $0.localizedName(),
                       let shortVersionString = $0.shortVersionString()
                 else {
@@ -82,13 +95,17 @@ final class AppListModel: ObservableObject {
                 return App(
                     id: id,
                     name: localizedName,
+                    type: appType,
                     teamID: teamID,
                     url: url,
                     version: shortVersionString
                 )
             }
-            .filter { Injector.isEligibleBundle($0.url) }
+        let filteredApps = allApps
+            .filter { $0.type != "User" || Injector.isEligibleBundle($0.url) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        unsupportedCount = allApps.count - filteredApps.count
+        return filteredApps
     }
 }
 
@@ -146,6 +163,7 @@ struct AppListCell: View {
                         Image(systemName: "bandage")
                             .font(.subheadline)
                             .foregroundColor(.orange)
+                            .accessibilityLabel(NSLocalizedString("Patched", comment: ""))
                     }
                 }
 
@@ -209,6 +227,31 @@ struct AppListView: View {
         }
     }
 
+    var filteredUserApps: [App] {
+        filteredApps.filter { $0.type == "User" }
+    }
+
+    var filteredSystemApps: [App] {
+        filteredApps.filter { $0.type != "User" }
+    }
+
+    func filteredAppList(_ apps: [App]) -> some View {
+        ForEach(apps, id: \.id) { app in
+            NavigationLink {
+                OptionView(app)
+            } label: {
+                if #available(iOS 16.0, *) {
+                    AppListCell(app: app)
+                        .environmentObject(searchOptions)
+                } else {
+                    AppListCell(app: app)
+                        .environmentObject(searchOptions)
+                        .padding(.vertical, 4)
+                }
+            }
+        }
+    }
+
     var appListFooter: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(appString)
@@ -229,22 +272,21 @@ struct AppListView: View {
     var appList: some View {
         List {
             Section {
-                ForEach(filteredApps, id: \.id) { app in
-                    NavigationLink {
-                        OptionView(app)
-                    } label: {
-                        if #available(iOS 16.0, *) {
-                            AppListCell(app: app)
-                                .environmentObject(searchOptions)
-                        } else {
-                            AppListCell(app: app)
-                                .environmentObject(searchOptions)
-                                .padding(.vertical, 4)
-                        }
-                    }
-                }
+                filteredAppList(filteredUserApps)
             } header: {
-                Text(showPatchedOnly ? NSLocalizedString("Injected Applications", comment: "") : NSLocalizedString("Injectable Applications", comment: ""))
+                Text(NSLocalizedString("User Applications", comment: ""))
+                    .font(.footnote)
+            } footer: {
+                if vm.unsupportedCount > 0 {
+                    Text(String(format: NSLocalizedString("And %d more unsupported applications.", comment: ""), vm.unsupportedCount))
+                        .font(.footnote)
+                }
+            }
+
+            Section {
+                filteredAppList(filteredSystemApps)
+            } header: {
+                Text(NSLocalizedString("System Applications", comment: ""))
                     .font(.footnote)
             } footer: {
                 if #available(iOS 16.0, *) {
@@ -257,7 +299,7 @@ struct AppListView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle(NSLocalizedString("Applications", comment: ""))
+        .navigationTitle(NSLocalizedString("TrollFools", comment: ""))
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
@@ -265,7 +307,11 @@ struct AppListView: View {
                         showPatchedOnly.toggle()
                     }
                 } label: {
-                    Image(systemName: showPatchedOnly ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                    if #available(iOS 15.0, *) {
+                        Image(systemName: showPatchedOnly ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                    } else {
+                        Image(systemName: showPatchedOnly ? "eject.circle.fill" : "eject.circle")
+                    }
                 }
                 .accessibilityLabel(NSLocalizedString("Show Patched Only", comment: ""))
             }
@@ -284,7 +330,9 @@ struct AppListView: View {
                     .searchable(
                         text: $searchOptions.keyword,
                         placement: .automatic,
-                        prompt: NSLocalizedString("Search…", comment: "")
+                        prompt: (showPatchedOnly
+                                 ? NSLocalizedString("Search Patched…", comment: "")
+                                 : NSLocalizedString("Search…", comment: ""))
                     )
                     .textInputAutocapitalization(.never)
                     .onChange(of: searchOptions.keyword) { keyword in

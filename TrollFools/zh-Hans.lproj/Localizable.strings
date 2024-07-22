@@ -11,7 +11,7 @@
 "AE86 TrollStore Channel" = "秋名山巨魔俱乐部";
 
 /* No comment provided by engineer. */
-"Applications" = "应用程序";
+"And %d more unsupported applications." = "另有 %d 个不支持的应用程序";
 
 /* No comment provided by engineer. */
 "Completed" = "已完成";
@@ -44,12 +44,6 @@
 "Inject" = "注入";
 
 /* No comment provided by engineer. */
-"Injectable Applications" = "可注入的应用程序";
-
-/* No comment provided by engineer. */
-"Injected Applications" = "已注入的应用程序";
-
-/* No comment provided by engineer. */
 "Injected Plug-Ins" = "已注入的插件";
 
 /* No comment provided by engineer. */
@@ -65,10 +59,19 @@
 "No Injected Plug-Ins" = "没有已注入的插件";
 
 /* No comment provided by engineer. */
+"No valid plug-ins found." = "没有找到有效的插件。";
+
+/* No comment provided by engineer. */
 "Not the first, but the best phone call recorder with TrollStore." = "TrollFools 永久免费，如果你喜欢它，请购买巨魔录音机支持我们的开发！";
 
 /* No comment provided by engineer. */
+"Patched" = "已注入";
+
+/* No comment provided by engineer. */
 "Plug-Ins" = "插件列表";
+
+/* No comment provided by engineer. */
+"Search Patched…" = "搜索 已注入…";
 
 /* No comment provided by engineer. */
 "Search…" = "搜索…";
@@ -77,7 +80,19 @@
 "Show Patched Only" = "仅显示已注入的";
 
 /* No comment provided by engineer. */
+"Some plug-ins were not injected by TrollFools, please eject them with caution." = "部分插件可能并非由 TrollFools 注入，移除它们可能会造成应用程序异常，请谨慎操作。";
+
+/* No comment provided by engineer. */
 "Source Code" = "获取源代码";
 
 /* No comment provided by engineer. */
+"System Applications" = "系统应用程序";
+
+/* No comment provided by engineer. */
+"TrollFools" = "TrollFools";
+
+/* No comment provided by engineer. */
 "TrollRecorder" = "巨魔录音机";
+
+/* No comment provided by engineer. */
+"User Applications" = "用户应用程序";
