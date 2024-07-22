@@ -33,16 +33,12 @@
 	<true/>
 	<key>com.apple.system-task-ports.control</key>
 	<true/>
-	<key>get-task-allow</key>
-	<true/>
 	<key>keychain-access-groups</key>
 	<array>
 		<string>wiki.qaq.TrollFools</string>
 		<string>GXZ23M5TP2.wiki.qaq.TrollFools</string>
 	</array>
 	<key>platform-application</key>
-	<true/>
-	<key>task_for_pid-allow</key>
 	<true/>
 </dict>
 </plist>

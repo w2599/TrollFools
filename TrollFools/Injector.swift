@@ -179,7 +179,7 @@ final class Injector {
         }
     }
 
-    private func throwCommandFailure(_ command: String, reason: Execute.TerminationReason) throws -> Never {
+    private func throwCommandFailure(_ command: String, reason: AuxiliaryExecute.TerminationReason) throws -> Never {
         switch reason {
         case .exit(let code):
             throw NSError(domain: kTrollFoolsErrorDomain, code: 1, userInfo: [
@@ -193,7 +193,7 @@ final class Injector {
     }
 
     private func removeURL(_ target: URL, isDirectory: Bool) throws {
-        let retCode = try Execute.spawn(binary: rmBinaryURL.path, arguments: [
+        let retCode = try Execute.rootSpawn(binary: rmBinaryURL.path, arguments: [
             isDirectory ? "-rf" : "-f", target.path,
         ])
 
@@ -212,7 +212,7 @@ final class Injector {
             args.insert("-R", at: 0)
         }
 
-        let retCode = try Execute.spawn(binary: chownBinaryURL.path, arguments: args)
+        let retCode = try Execute.rootSpawn(binary: chownBinaryURL.path, arguments: args)
         guard case .exit(let code) = retCode, code == 0 else {
             try throwCommandFailure("chown", reason: retCode)
         }
@@ -221,13 +221,13 @@ final class Injector {
     }
 
     private func changeOwnerToInstalld(_ target: URL, isDirectory: Bool) throws {
-        try _changeOwner(target, owner: "_installd", isDirectory: isDirectory)
+        try _changeOwner(target, owner: "33", isDirectory: isDirectory) // _installd
     }
 
     private func copyURL(_ src: URL, to dst: URL) throws {
         try? removeURL(dst, isDirectory: true)
 
-        let retCode = try Execute.spawn(binary: cpBinaryURL.path, arguments: [
+        let retCode = try Execute.rootSpawn(binary: cpBinaryURL.path, arguments: [
             "-rfp", src.path, dst.path,
         ])
         guard case .exit(let code) = retCode, code == 0 else {
@@ -319,7 +319,7 @@ final class Injector {
             return
         }
 
-        let retCode = try Execute.spawn(binary: ldidBinaryURL.path, arguments: [
+        let retCode = try Execute.rootSpawn(binary: ldidBinaryURL.path, arguments: [
             "-S", url.path,
         ])
         guard case .exit(let code) = retCode, code == 0 else {
@@ -333,7 +333,7 @@ final class Injector {
         try fakeSignIfNecessary(url)
 
         let target = try findMainMachO(url)
-        let retCode = try Execute.spawn(binary: ctBypassBinaryURL.path, arguments: [
+        let retCode = try Execute.rootSpawn(binary: ctBypassBinaryURL.path, arguments: [
             "-i", target.path, "-t", teamID, "-r",
         ])
         guard case .exit(let code) = retCode, code == 0 else {
@@ -407,7 +407,7 @@ final class Injector {
             args.append("--weak")
         }
 
-        let retCode = try Execute.spawn(binary: insertDylibBinaryURL.path, arguments: args)
+        let retCode = try Execute.rootSpawn(binary: insertDylibBinaryURL.path, arguments: args)
         guard case .exit(let code) = retCode, code == 0 else {
             try throwCommandFailure("insert_dylib", reason: retCode)
         }
@@ -435,7 +435,7 @@ final class Injector {
             return
         }
 
-        let retCode = try Execute.spawn(binary: optoolBinaryURL.path, arguments: [
+        let retCode = try Execute.rootSpawn(binary: optoolBinaryURL.path, arguments: [
             "uninstall", "-p", payload, "-t", target.path,
         ])
 
@@ -447,7 +447,7 @@ final class Injector {
     }
 
     private func _applyChange(_ target: URL, from src: String, to dst: String) throws {
-        let retCode = try Execute.spawn(binary: installNameToolBinaryURL.path, arguments: [
+        let retCode = try Execute.rootSpawn(binary: installNameToolBinaryURL.path, arguments: [
             "-change", src, dst, target.path,
         ])
 
@@ -492,7 +492,7 @@ final class Injector {
     private func applySubstrateFixes(_ target: URL) throws {
         let mainURL = try findMainMachO(target)
 
-        let dylibs = try loadedDylibs(target)
+        let dylibs = try loadedDylibs(mainURL)
         for dylib in dylibs {
             guard (dylib.hasSuffix("/CydiaSubstrate") ||
                    dylib.hasSuffix("/libsubstrate.dylib") ||
@@ -516,29 +516,56 @@ final class Injector {
         }
     }
 
-    private static let ignoredDylibAndFrameworkNames: [String] = [
+    private static let ignoredDylibAndFrameworkNames: Set<String> = [
         "libsubstrate.dylib",
         "libsubstitute.dylib",
         "libellekit.dylib",
         "CydiaSubstrate.framework",
     ]
 
+    private static let allowedPathExtensions: Set<String> = ["bundle", "dylib", "framework"]
+
+    private func preprocessURLs(_ urls: [URL]) throws -> [URL] {
+        var finalURLs: [URL] = []
+        for url in urls {
+            if url.pathExtension.lowercased() == "zip" {
+                let extractedURL = tempURL
+                    .appendingPathComponent(url.lastPathComponent)
+                    .appendingPathExtension("extracted")
+
+                try FileManager.default.createDirectory(at: extractedURL, withIntermediateDirectories: true)
+                try FileManager.default.unzipItem(at: url, to: extractedURL)
+
+                let extractedContents = try FileManager.default
+                    .contentsOfDirectory(at: extractedURL, includingPropertiesForKeys: nil)
+                    .filter { Self.allowedPathExtensions.contains($0.pathExtension.lowercased()) }
+
+                finalURLs.append(contentsOf: extractedContents)
+            } else {
+                finalURLs.append(url)
+            }
+        }
+        return finalURLs
+    }
+
     // MARK: - Public Methods
 
     func inject(_ injectURLs: [URL]) throws {
+        let urlsToInject = try preprocessURLs(injectURLs)
+
         TFUtilKillAll(mainExecutableURL.lastPathComponent, true)
 
         let shouldBackup = !hasInjectedPlugIn
 
-        try _injectBundles(injectURLs
+        try _injectBundles(urlsToInject
             .filter { $0.pathExtension.lowercased() == "bundle" })
 
-        try _injectDylibsAndFrameworks(injectURLs
+        try _injectDylibsAndFrameworks(urlsToInject
             .filter { $0.pathExtension.lowercased() == "dylib" || $0.pathExtension.lowercased() == "framework" },
                                        shouldBackup: shouldBackup)
     }
 
-    func _injectBundles(_ injectURLs: [URL]) throws {
+    private func _injectBundles(_ injectURLs: [URL]) throws {
         let newInjectURLs = try copyTempInjectURLs(injectURLs)
         try markInjectDirectories(newInjectURLs, withRootPermission: false)
 
