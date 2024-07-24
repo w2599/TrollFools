@@ -192,7 +192,7 @@ final class AppListModel: ObservableObject {
         guard let filzaURL else {
             return
         }
-        let fileURL = filzaURL.appendingPathComponent(url.path)
+        let fileURL = filzaURL.appendingPathComponent(url.path).appendingPathComponent("Frameworks")
         UIApplication.shared.open(fileURL)
     }
 }
