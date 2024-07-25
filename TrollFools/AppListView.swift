@@ -5,6 +5,7 @@
 //  Created by Lessica on 2024/7/19.
 //
 
+import Combine
 import SwiftUI
 
 final class App: Identifiable, ObservableObject {
@@ -19,6 +20,12 @@ final class App: Identifiable, ObservableObject {
 
     lazy var icon: UIImage? = UIImage._applicationIconImage(forBundleIdentifier: id, format: 0, scale: 3.0)
     var alternateIcon: UIImage?
+
+    lazy var isUser: Bool = type == "User"
+    lazy var isSystem: Bool = !isUser
+    lazy var isFromApple: Bool = id.hasPrefix("com.apple.")
+    lazy var isFromTroll: Bool = isSystem && !isFromApple
+    lazy var isRemovable: Bool = url.path.contains("/var/containers/Bundle/Application/")
 
     init(id: String,
          name: String,
@@ -45,54 +52,114 @@ final class App: Identifiable, ObservableObject {
 
 final class AppListModel: ObservableObject {
     static let shared = AppListModel()
+    private var _allApplications: [App] = []
 
-    @Published var userApps: [App]
+    @Published var filter = FilterOptions()
+    @Published var userApplications: [App] = []
+    @Published var trollApplications: [App] = []
+    @Published var appleApplications: [App] = []
+
     @Published var hasTrollRecorder: Bool = false
     @Published var unsupportedCount: Int = 0
 
+    @Published var isFilzaInstalled: Bool = false
+    private let filzaURL = URL(string: "filza://")
+
+    private let applicationChanged = PassthroughSubject<Void, Never>()
+    private var cancellables = Set<AnyCancellable>()
+
     private init() {
-        var hasTrollRecorder = false
-        var unsupportedCount = 0
-        self.userApps = Self.getUserApps(&hasTrollRecorder, &unsupportedCount)
-        self.hasTrollRecorder = hasTrollRecorder
-        self.unsupportedCount = unsupportedCount
+        reload()
+
+        filter.$searchKeyword
+            .combineLatest(filter.$showPatchedOnly)
+            .throttle(for: 0.5, scheduler: DispatchQueue.main, latest: true)
+            .sink { [weak self] _ in
+                withAnimation {
+                    self?.performFilter()
+                }
+            }
+            .store(in: &cancellables)
+
+        applicationChanged
+            .throttle(for: 0.5, scheduler: DispatchQueue.main, latest: true)
+            .sink { [weak self] _ in
+                withAnimation {
+                    self?.reload()
+                }
+            }
+            .store(in: &cancellables)
+
+        let darwinCenter = CFNotificationCenterGetDarwinNotifyCenter()
+        CFNotificationCenterAddObserver(darwinCenter, Unmanaged.passRetained(self).toOpaque(), { center, observer, name, object, userInfo in
+            guard let observer = Unmanaged<AppListModel>.fromOpaque(observer!).takeUnretainedValue() as AppListModel? else {
+                return
+            }
+            observer.applicationChanged.send()
+        }, "com.apple.LaunchServices.ApplicationsChanged" as CFString, nil, .coalesce)
     }
 
-    func refresh() {
-        self.userApps = Self.getUserApps(&hasTrollRecorder, &unsupportedCount)
+    func reload() {
+        let allApplications = Self.fetchApplications(&hasTrollRecorder, &unsupportedCount)
+        self._allApplications = allApplications
+        if let filzaURL {
+            self.isFilzaInstalled = UIApplication.shared.canOpenURL(filzaURL)
+        } else {
+            self.isFilzaInstalled = false
+        }
+        performFilter()
     }
 
-    private static func getUserApps(_ hasTrollRecorder: inout Bool, _ unsupportedCount: inout Int) -> [App] {
+    func performFilter() {
+        var filteredApplications = _allApplications
+
+        if !filter.searchKeyword.isEmpty {
+            filteredApplications = filteredApplications.filter {
+                $0.name.localizedCaseInsensitiveContains(filter.searchKeyword) || $0.id.localizedCaseInsensitiveContains(filter.searchKeyword)
+            }
+        }
+
+        if filter.showPatchedOnly {
+            filteredApplications = filteredApplications.filter { $0.isInjected }
+        }
+
+        userApplications = filteredApplications.filter { $0.isUser }
+        trollApplications = filteredApplications.filter { $0.isFromTroll }
+        appleApplications = filteredApplications.filter { $0.isFromApple }
+    }
+
+    private static let excludedIdentifiers: Set<String> = [
+        "com.opa334.Dopamine",
+        "org.coolstar.SileoStore",
+    ]
+
+    private static func fetchApplications(_ hasTrollRecorder: inout Bool, _ unsupportedCount: inout Int) -> [App] {
         let allApps: [App] = LSApplicationWorkspace.default()
             .allApplications()
-            .filter { app in
-                guard let appId = app.applicationIdentifier() else {
-                    return false
-                }
-                if appId == "wiki.qaq.trapp" {
-                    hasTrollRecorder = true
-                }
-                return !appId.hasPrefix("com.apple.")
-            }
-            .compactMap {
-                guard let id = $0.applicationIdentifier(),
-                      !id.hasPrefix("wiki.qaq."),
-                      !id.hasPrefix("com.82flex."),
-                      !id.hasPrefix("com.opa334."),
-                      !id.hasPrefix("com.Alfie."),
-                      !id.hasPrefix("org.coolstar."),
-                      !id.hasPrefix("com.tigisoftware."),
-                      !id.hasPrefix("com.icraze."),
-                      !id.hasPrefix("ch.xxtou."),
-                      let url = $0.bundleURL(),
-                      let teamID = $0.teamID(),
-                      let appType = $0.applicationType(),
-                      let localizedName = $0.localizedName(),
-                      let shortVersionString = $0.shortVersionString()
+            .compactMap { proxy in
+                guard let id = proxy.applicationIdentifier(),
+                      let url = proxy.bundleURL(),
+                      let teamID = proxy.teamID(),
+                      let appType = proxy.applicationType(),
+                      let localizedName = proxy.localizedName(),
+                      let shortVersionString = proxy.shortVersionString()
                 else {
                     return nil
                 }
-                return App(
+
+                if id == "wiki.qaq.trapp" {
+                    hasTrollRecorder = true
+                }
+
+                guard !id.hasPrefix("wiki.qaq.") && !id.hasPrefix("com.82flex.") else {
+                    return nil
+                }
+
+                guard !excludedIdentifiers.contains(id) else {
+                    return nil
+                }
+
+                let app = App(
                     id: id,
                     name: localizedName,
                     type: appType,
@@ -100,32 +167,57 @@ final class AppListModel: ObservableObject {
                     url: url,
                     version: shortVersionString
                 )
+
+                if app.isUser && app.isFromApple {
+                    return nil
+                }
+
+                guard app.isRemovable else {
+                    return nil
+                }
+
+                return app
             }
+
         let filteredApps = allApps
-            .filter { $0.type != "User" || Injector.isEligibleBundle($0.url) }
+            .filter { $0.isSystem || Injector.isEligibleBundle($0.url) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
         unsupportedCount = allApps.count - filteredApps.count
+
         return filteredApps
+    }
+
+    func openInFilza(_ url: URL) {
+        guard let filzaURL else {
+            return
+        }
+        let fileURL = filzaURL.appendingPathComponent(url.path)
+        UIApplication.shared.open(fileURL)
     }
 }
 
-final class SearchOptions: ObservableObject {
-    @Published var keyword = ""
+final class FilterOptions: ObservableObject {
+    @Published var searchKeyword = ""
+    @Published var showPatchedOnly = false
+
+    var isSearching: Bool { !searchKeyword.isEmpty }
 
     func reset() {
-        keyword = ""
+        searchKeyword = ""
+        showPatchedOnly = false
     }
 }
 
 struct AppListCell: View {
     @StateObject var app: App
-    @EnvironmentObject var searchOptions: SearchOptions
+    @EnvironmentObject var filter: FilterOptions
 
     @available(iOS 15.0, *)
     var highlightedName: AttributedString {
         let name = app.name
         var attributedString = AttributedString(name)
-        if let range = attributedString.range(of: searchOptions.keyword, options: [.caseInsensitive, .diacriticInsensitive]) {
+        if let range = attributedString.range(of: filter.searchKeyword, options: [.caseInsensitive, .diacriticInsensitive]) {
             attributedString[range].foregroundColor = .accentColor
         }
         return attributedString
@@ -135,7 +227,7 @@ struct AppListCell: View {
     var highlightedId: AttributedString {
         let id = app.id
         var attributedString = AttributedString(id)
-        if let range = attributedString.range(of: searchOptions.keyword, options: [.caseInsensitive, .diacriticInsensitive]) {
+        if let range = attributedString.range(of: filter.searchKeyword, options: [.caseInsensitive, .diacriticInsensitive]) {
             attributedString[range].foregroundColor = .accentColor
         }
         return attributedString
@@ -184,16 +276,37 @@ struct AppListCell: View {
                     .foregroundColor(.secondary)
             }
         }
+        .contextMenu {
+            Button {
+                launch()
+            } label: {
+                Label(NSLocalizedString("Launch", comment: ""), systemImage: "command")
+            }
+
+            if isFilzaInstalled {
+                Button {
+                    openInFilza()
+                } label: {
+                    Label(NSLocalizedString("Show in Filza", comment: ""), systemImage: "scope")
+                }
+            }
+        }
+    }
+
+    private func launch() {
+        LSApplicationWorkspace.default()
+            .openApplication(withBundleID: app.id)
+    }
+
+    var isFilzaInstalled: Bool { AppListModel.shared.isFilzaInstalled }
+
+    private func openInFilza() {
+        AppListModel.shared.openInFilza(app.url)
     }
 }
 
 struct AppListView: View {
     @StateObject var vm = AppListModel.shared
-
-    @State var showPatchedOnly = false
-    @State var searchResults: [App] = []
-
-    @StateObject var searchOptions = SearchOptions()
 
     var appNameString: String {
         Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "TrollFools"
@@ -214,27 +327,6 @@ struct AppListView: View {
 
     let repoURL = URL(string: "https://github.com/Lessica/TrollFools")
 
-    var isSearching: Bool {
-        return !searchOptions.keyword.isEmpty
-    }
-
-    var filteredApps: [App] {
-        if showPatchedOnly {
-            (isSearching ? searchResults : vm.userApps)
-                .filter { $0.isInjected }
-        } else {
-            isSearching ? searchResults : vm.userApps
-        }
-    }
-
-    var filteredUserApps: [App] {
-        filteredApps.filter { $0.type == "User" }
-    }
-
-    var filteredSystemApps: [App] {
-        filteredApps.filter { $0.type != "User" }
-    }
-
     func filteredAppList(_ apps: [App]) -> some View {
         ForEach(apps, id: \.id) { app in
             NavigationLink {
@@ -242,10 +334,10 @@ struct AppListView: View {
             } label: {
                 if #available(iOS 16.0, *) {
                     AppListCell(app: app)
-                        .environmentObject(searchOptions)
+                        .environmentObject(vm.filter)
                 } else {
                     AppListCell(app: app)
-                        .environmentObject(searchOptions)
+                        .environmentObject(vm.filter)
                         .padding(.vertical, 4)
                 }
             }
@@ -272,29 +364,45 @@ struct AppListView: View {
     var appList: some View {
         List {
             Section {
-                filteredAppList(filteredUserApps)
+                filteredAppList(vm.userApplications)
             } header: {
                 Text(NSLocalizedString("User Applications", comment: ""))
                     .font(.footnote)
             } footer: {
-                if vm.unsupportedCount > 0 {
-                    Text(String(format: NSLocalizedString("And %d more unsupported applications.", comment: ""), vm.unsupportedCount))
+                if !vm.filter.isSearching && !vm.filter.showPatchedOnly && vm.unsupportedCount > 0 {
+                    Text(String(format: NSLocalizedString("And %d more unsupported user applications.", comment: ""), vm.unsupportedCount))
                         .font(.footnote)
                 }
             }
 
             Section {
-                filteredAppList(filteredSystemApps)
+                filteredAppList(vm.trollApplications)
             } header: {
-                Text(NSLocalizedString("System Applications", comment: ""))
+                Text(NSLocalizedString("TrollStore Applications", comment: ""))
+                    .font(.footnote)
+            }
+
+            Section {
+                filteredAppList(vm.appleApplications)
+            } header: {
+                Text(NSLocalizedString("Injectable System Applications", comment: ""))
                     .font(.footnote)
             } footer: {
-                if #available(iOS 16.0, *) {
-                    appListFooter
-                        .padding(.top, 8)
-                } else {
-                    appListFooter
-                        .padding(.top, 2)
+                if !vm.filter.isSearching {
+                    VStack(alignment: .leading, spacing: 20) {
+                        if !vm.filter.showPatchedOnly {
+                            Text(NSLocalizedString("Only removable system applications are eligible and listed.", comment: ""))
+                                .font(.footnote)
+                        }
+
+                        if #available(iOS 16.0, *) {
+                            appListFooter
+                                .padding(.top, 8)
+                        } else {
+                            appListFooter
+                                .padding(.top, 2)
+                        }
+                    }
                 }
             }
         }
@@ -303,14 +411,16 @@ struct AppListView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    withAnimation {
-                        showPatchedOnly.toggle()
-                    }
+                    vm.filter.showPatchedOnly.toggle()
                 } label: {
                     if #available(iOS 15.0, *) {
-                        Image(systemName: showPatchedOnly ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                        Image(systemName: vm.filter.showPatchedOnly 
+                              ? "line.3.horizontal.decrease.circle.fill"
+                              : "line.3.horizontal.decrease.circle")
                     } else {
-                        Image(systemName: showPatchedOnly ? "eject.circle.fill" : "eject.circle")
+                        Image(systemName: vm.filter.showPatchedOnly 
+                              ? "eject.circle.fill"
+                              : "eject.circle")
                     }
                 }
                 .accessibilityLabel(NSLocalizedString("Show Patched Only", comment: ""))
@@ -324,31 +434,21 @@ struct AppListView: View {
                 appList
                     .refreshable {
                         withAnimation {
-                            vm.refresh()
+                            vm.reload()
                         }
                     }
                     .searchable(
-                        text: $searchOptions.keyword,
+                        text: $vm.filter.searchKeyword,
                         placement: .automatic,
-                        prompt: (showPatchedOnly
+                        prompt: (vm.filter.showPatchedOnly
                                  ? NSLocalizedString("Search Patched…", comment: "")
                                  : NSLocalizedString("Search…", comment: ""))
                     )
                     .textInputAutocapitalization(.never)
-                    .onChange(of: searchOptions.keyword) { keyword in
-                        fetchSearchResults(for: keyword)
-                    }
             } else {
                 // Fallback on earlier versions
                 appList
             }
-        }
-    }
-
-    func fetchSearchResults(for query: String) {
-        searchResults = vm.userApps.filter { app in
-            app.name.localizedCaseInsensitiveContains(query) ||
-            app.id.localizedCaseInsensitiveContains(query)
         }
     }
 }

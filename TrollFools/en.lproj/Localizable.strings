@@ -11,7 +11,7 @@
 "AE86 TrollStore Channel" = "AE86 TrollStore Channel";
 
 /* No comment provided by engineer. */
-"And %d more unsupported applications." = "And %d more unsupported applications.";
+"And %d more unsupported user applications." = "And %d more unsupported user applications.";
 
 /* No comment provided by engineer. */
 "Completed" = "Completed";
@@ -44,10 +44,16 @@
 "Inject" = "Inject";
 
 /* No comment provided by engineer. */
+"Injectable System Applications" = "Injectable System Applications";
+
+/* No comment provided by engineer. */
 "Injected Plug-Ins" = "Injected Plug-Ins";
 
 /* No comment provided by engineer. */
 "Injecting" = "Injecting";
+
+/* No comment provided by engineer. */
+"Launch" = "Launch";
 
 /* No comment provided by engineer. */
 "Lessica, Lakr233, mlgm and other contributors." = "Lessica, Lakr233, mlgm and other contributors.";
@@ -65,6 +71,9 @@
 "Not the first, but the best phone call recorder with TrollStore." = "Not the first, but the best phone call recorder with TrollStore.";
 
 /* No comment provided by engineer. */
+"Only removable system applications are eligible and listed." = "Only removable system applications are eligible and listed.";
+
+/* No comment provided by engineer. */
 "Patched" = "Patched";
 
 /* No comment provided by engineer. */
@@ -77,6 +86,9 @@
 "Search…" = "Search…";
 
 /* No comment provided by engineer. */
+"Show in Filza" = "Show in Filza";
+
+/* No comment provided by engineer. */
 "Show Patched Only" = "Show Patched Only";
 
 /* No comment provided by engineer. */
@@ -86,13 +98,13 @@
 "Source Code" = "Source Code";
 
 /* No comment provided by engineer. */
-"System Applications" = "System Applications";
-
-/* No comment provided by engineer. */
 "TrollFools" = "TrollFools";
 
 /* No comment provided by engineer. */
 "TrollRecorder" = "TrollRecorder";
+
+/* No comment provided by engineer. */
+"TrollStore Applications" = "TrollStore Applications";
 
 /* No comment provided by engineer. */
 "User Applications" = "User Applications";
