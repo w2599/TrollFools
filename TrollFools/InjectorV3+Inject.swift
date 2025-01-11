@@ -107,7 +107,7 @@ extension InjectorV3 {
 
     // MARK: - Cydia Substrate
 
-    fileprivate static let substrateZipURL = Bundle.main.url(forResource: substrateFwkName, withExtension: "zip")!
+    fileprivate static let substrateZipURL = Bundle.main.url(forResource: "CydiaSubstrate.framework", withExtension: "zip")!
 
     fileprivate func prepareSubstrate() throws -> URL {
         try FileManager.default.unzipItem(at: Self.substrateZipURL, to: temporaryDirectoryURL)
