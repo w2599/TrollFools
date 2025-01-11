@@ -17,6 +17,8 @@ extension InjectorV3 {
         "cydiasubstrate.framework",
         "CydiaSubstrate",
         "CydiaSubstrate.framework",
+        "CCC",
+        "CCC.framework",
         "ellekit",
         "ellekit.framework",
         "ElleKit",
@@ -29,8 +31,8 @@ extension InjectorV3 {
         "libElleKit.dylib",
     ]
 
-    static let substrateName = "CydiaSubstrate"
-    static let substrateFwkName = "CydiaSubstrate.framework"
+    static let substrateName = "CCC"
+    static let substrateFwkName = "CCC.framework"
     
     fileprivate static let infoPlistName = "Info.plist"
     fileprivate static let injectedMarkerName = ".troll-fools"
